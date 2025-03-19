@@ -16,10 +16,17 @@ buildNumber.properties
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
 
-# Compiled class file
+# Compiled class files
 *.class
+/bin/
+/build/
+/target/
+/out/
 
-# Log file
+# Generated ANTLR files
+/src/main/java/com/minisoft/parser/
+
+# Log files
 *.log
 
 # BlueJ files
@@ -28,7 +35,7 @@ buildNumber.properties
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Package Files #
+# Package files
 *.jar
 *.war
 *.nar
@@ -36,6 +43,16 @@ buildNumber.properties
 *.zip
 *.tar.gz
 *.rar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.settings/
+
+# OS specific files
+.DS_Store
+Thumbs.db
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
