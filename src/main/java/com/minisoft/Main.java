@@ -1,79 +1,79 @@
 package com.minisoft;
 
-import com.minisoft.codegen.CodeGenerator;
-import com.minisoft.error.ErrorHandler;
-import com.minisoft.parser.MiniSoftLexer;
-import com.minisoft.parser.MiniSoftParser;
-import com.minisoft.semantic.SemanticAnalyzer;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
+import com.minisoft.symbol.SymbolTable;
+import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class Main {
     public static void main(String[] args) {
-        if (args.length < 1) {
+        if (args.length != 1) {
             System.err.println("Usage: java -jar minisoft-compiler.jar <source-file>");
             System.exit(1);
         }
-
+        
+        String sourceFilePath = args[0];
+        
         try {
-            // Read source file
-            String sourceFilePath = args[0];
-            String sourceCode = readFile(sourceFilePath);
-
-            // Setup error handler
-            ErrorHandler errorHandler = new ErrorHandler();
-
-            // Lexical and Syntax analysis
+            String sourceCode = new String(Files.readAllBytes(Paths.get(sourceFilePath)));
+            
+            // Lexical analysis
             MiniSoftLexer lexer = new MiniSoftLexer(CharStreams.fromString(sourceCode));
             lexer.removeErrorListeners();
-            lexer.addErrorListener(errorHandler);
-
+            lexer.addErrorListener(new BaseErrorListener() {
+                @Override
+                public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, 
+                                       int line, int charPositionInLine, String msg, RecognitionException e) {
+                    System.err.println("[Lexical Error] Line " + line + ":" + charPositionInLine + " - " + msg);
+                }
+            });
+            
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-
+            
+            // Syntax analysis
             MiniSoftParser parser = new MiniSoftParser(tokens);
             parser.removeErrorListeners();
-            parser.addErrorListener(errorHandler);
-
+            parser.addErrorListener(new BaseErrorListener() {
+                @Override
+                public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol, 
+                                       int line, int charPositionInLine, String msg, RecognitionException e) {
+                    System.err.println("[Syntax Error] Line " + line + ":" + charPositionInLine + 
+                                      " - " + msg);
+                }
+            });
+            
+            // Parse the input
             ParseTree tree = parser.program();
-
-            if (errorHandler.hasErrors()) {
-                System.err.println("Compilation failed due to syntax errors:");
-                errorHandler.printErrors();
+            
+            if (parser.getNumberOfSyntaxErrors() > 0) {
+                System.err.println("Compilation failed with " + parser.getNumberOfSyntaxErrors() + " syntax errors.");
                 System.exit(1);
             }
-
-            // Semantic analysis
-            SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer(errorHandler);
-            semanticAnalyzer.visit(tree);
-
-            if (errorHandler.hasErrors()) {
-                System.err.println("Compilation failed due to semantic errors:");
-                errorHandler.printErrors();
+            
+            // Build symbol table
+            SymbolTableBuilder symbolTableBuilder = new SymbolTableBuilder();
+            ParseTreeWalker walker = new ParseTreeWalker();
+            walker.walk(symbolTableBuilder, tree);
+            
+            SymbolTable symbolTable = symbolTableBuilder.getSymbolTable();
+            
+            // Show compilation results
+            if (!symbolTableBuilder.hasErrors()) {
+                System.out.println("Compilation successful!");
+                symbolTable.displaySymbolTable();
+            } else {
+                System.err.println("Compilation failed with semantic errors.");
+                symbolTable.displaySymbolTable();
                 System.exit(1);
             }
-
-            // Intermediate code generation
-            CodeGenerator codeGenerator = new CodeGenerator(semanticAnalyzer.getSymbolTable());
-            codeGenerator.visit(tree);
-
-            System.out.println("Compilation successful!");
-            System.out.println("\nGenerated Intermediate Code (Quadruples):");
-            codeGenerator.printQuadruples();
-
+            
         } catch (IOException e) {
             System.err.println("Error reading source file: " + e.getMessage());
             System.exit(1);
         }
-    }
-
-    private static String readFile(String path) throws IOException {
-        Path filePath = Paths.get(path);
-        return new String(Files.readAllBytes(filePath));
     }
 }

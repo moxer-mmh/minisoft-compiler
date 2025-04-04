@@ -1,120 +1,197 @@
 grammar MiniSoft;
 
-// Parser rules
-program : statement* EOF ;
+// Parser Rules
+program
+    : 'MainPrgm' ID ';'
+      'Var'
+      declarations
+      'BeginPg'
+      '{'
+      instructions
+      '}'
+      'EndPg' ';'
+    ;
 
-statement
-    : declaration
-    | assignment
+declarations
+    : (variableDeclaration | constantDeclaration)*
+    ;
+
+variableDeclaration
+    : 'let' idList ':' type ';'
+    | 'let' idList ':' '[' type ';' INT ']' ';'
+    ;
+
+constantDeclaration
+    : '@define' 'Const' ID ':' type '=' constValue ';'
+    ;
+
+idList
+    : ID (',' ID)*
+    ;
+
+type
+    : 'Int'
+    | 'Float'
+    ;
+
+constValue
+    : INT
+    | FLOAT
+    | '(' sign INT ')'
+    | '(' sign FLOAT ')'
+    ;
+
+sign
+    : '+'
+    | '-'
+    ;
+
+instructions
+    : instruction*
+    ;
+
+instruction
+    : assignment
     | ifStatement
-    | loopStatement
-    | ioStatement
-    ;
-
-declaration
-    : variableDeclaration
-    | arrayDeclaration
-    | constantDeclaration
-    ;
-
-variableDeclaration : LET identifier ':' dataType ';' ;
-arrayDeclaration : LET identifier ':' '[' dataType ';' INTEGER ']' ';' ;
-constantDeclaration : DEFINE CONST identifier ':' dataType '=' expression ';' ;
-
-assignment : identifier ':=' expression ';' ;
-
-ifStatement 
-    : IF '(' condition ')' THEN '{' statement* '}' 
-      (ELSE '{' statement* '}')?
-    ;
-
-loopStatement
-    : doWhileLoop
+    | doWhileLoop
     | forLoop
-    ;
-
-doWhileLoop : DO '{' statement* '}' WHILE '(' condition ')' ';' ;
-
-forLoop : FOR identifier FROM expression TO expression STEP expression '{' statement* '}' ;
-
-ioStatement
-    : inputStatement
+    | inputStatement
     | outputStatement
     ;
 
-inputStatement : INPUT '(' identifier ')' ';' ;
-outputStatement : OUTPUT '(' (STRING (',' identifier)* | identifier) ')' ';' ;
+assignment
+    : ID ':=' expression ';'
+    | ID '[' expression ']' ':=' expression ';'
+    ;
+
+ifStatement
+    : 'if' '(' condition ')' 'then'
+      '{'
+      instructions
+      '}' 
+      ('else' 
+      '{'
+      instructions
+      '}')?
+    ;
+
+doWhileLoop
+    : 'do' 
+      '{'
+      instructions
+      '}' 
+      'while' '(' condition ')' ';'
+    ;
+
+forLoop
+    : 'for' ID 'from' expression 'to' expression 'step' expression 
+      '{'
+      instructions
+      '}'
+    ;
+
+inputStatement
+    : 'input' '(' ID ')' ';'
+    ;
+
+outputStatement
+    : 'output' '(' outputArgList ')' ';'
+    ;
+
+outputArgList
+    : outputArg (',' outputArg)*
+    ;
+
+outputArg
+    : STRING
+    | expression
+    ;
+
+// Fix the left-recursive expressions by using ANTLR's preferred structure
+expression
+    : additiveExpression
+    ;
+
+additiveExpression
+    : multiplicativeExpression (additiveOp multiplicativeExpression)*
+    ;
+
+additiveOp
+    : '+'
+    | '-'
+    ;
+
+multiplicativeExpression
+    : primaryExpression (multiplicativeOp primaryExpression)*
+    ;
+
+multiplicativeOp
+    : '*'
+    | '/'
+    ;
+
+primaryExpression
+    : ID
+    | ID '[' expression ']'
+    | constValue
+    | '(' expression ')'
+    ;
 
 condition
-    : expression comparisonOperator expression             #comparisonCondition
-    | condition AND condition                              #andCondition
-    | condition OR condition                               #orCondition
-    | '!' condition                                        #notCondition
-    | '(' condition ')'                                    #parenthesizedCondition
+    : logicalOrExpression
     ;
 
-expression
-    : primary                                              #primaryExpr
-    | identifier '[' expression ']'                        #arrayAccessExpr
-    | '(' expression ')'                                   #parenExpr
-    | '-' expression                                       #negationExpr
-    | expression ('*' | '/') expression                    #mulDivExpr
-    | expression ('+' | '-') expression                    #addSubExpr
+logicalOrExpression
+    : logicalAndExpression ('OR' logicalAndExpression)*
     ;
 
-primary
-    : identifier
-    | INTEGER
-    | FLOAT
+logicalAndExpression
+    : negationExpression ('AND' negationExpression)*
     ;
 
-identifier : IDENTIFIER ;
+negationExpression
+    : '!' negationExpression
+    | comparisonExpression
+    ;
 
-dataType
-    : INT
-    | FLOAT_TYPE
+comparisonExpression
+    : additiveExpression comparisonOperator additiveExpression
+    | '(' logicalOrExpression ')'
+    | additiveExpression
     ;
 
 comparisonOperator
-    : '<'
-    | '>'
+    : '>'
+    | '<'
     | '>='
     | '<='
     | '=='
     | '!='
     ;
 
-// Lexer rules
-LET : 'let' ;
-DEFINE : '@define' ;
-CONST : 'Const' ;
-IF : 'if' ;
-THEN : 'then' ;
-ELSE : 'else' ;
-DO : 'do' ;
-WHILE : 'while' ;
-FOR : 'for' ;
-FROM : 'from' ;
-TO : 'to' ;
-STEP : 'step' ;
-INPUT : 'input' ;
-OUTPUT : 'output' ;
-INT : 'Int' ;
-FLOAT_TYPE : 'Float' ;
-AND : 'AND' ;
-OR : 'OR' ;
+// Lexer Rules
+ID : [a-z][a-zA-Z0-9_]* {
+        // Check for invalid patterns: more than 14 chars, ending with _, or consecutive _
+        String text = getText();
+        if (text.length() > 14) {
+            // Handle the error - in a real compiler you might want to throw an exception or log this
+            System.err.println("Error: Identifier '" + text + "' exceeds maximum length of 14 characters");
+        }
+        if (text.endsWith("_")) {
+            System.err.println("Error: Identifier '" + text + "' cannot end with an underscore");
+        }
+        if (text.contains("__")) {
+            System.err.println("Error: Identifier '" + text + "' cannot contain consecutive underscores");
+        }
+    };
 
-INTEGER : SIGN? DIGIT+ ;
-FLOAT : SIGN? DIGIT+ '.' DIGIT* ;
-IDENTIFIER : LETTER (LETTER | DIGIT | '_')* ;
-STRING : '"' .*? '"' ;
-
-fragment SIGN : '(' ('-' | '+') ')' ;
-fragment LETTER : [a-zA-Z] ;
-fragment DIGIT : [0-9] ;
+INT : [0-9]+ ;
+FLOAT : [0-9]+ '.' [0-9]+ ;
+STRING : '"' (~["\r\n] | '\\"')* '"' ;
 
 // Comments
-SINGLE_LINE_COMMENT : '< !-' .*? '- !>' -> skip ;
-MULTI_LINE_COMMENT : '{--' .*? '--}' -> skip ;
+SINGLE_LINE_COMMENT : '<' '!' '-' .*? '-' '!' '>' -> skip ;
+MULTI_LINE_COMMENT : '{' '-' '-' .*? '-' '-' '}' -> skip ;
 
+// Whitespace
 WS : [ \t\r\n]+ -> skip ;
