@@ -4,6 +4,9 @@ import com.minisoft.symbol.SymbolTable;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
+import org.antlr.v4.gui.Trees; // Add this import for GUI visualization
+import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,6 +52,9 @@ public class Main {
             // Parse the input
             ParseTree tree = parser.program();
             
+            // Display the parse tree in a GUI window
+            showParseTreeFrame(parser, tree, "MiniSoft Parse Tree");
+            
             if (parser.getNumberOfSyntaxErrors() > 0) {
                 System.err.println("Compilation failed with " + parser.getNumberOfSyntaxErrors() + " syntax errors.");
                 System.exit(1);
@@ -75,5 +81,24 @@ public class Main {
             System.err.println("Error reading source file: " + e.getMessage());
             System.exit(1);
         }
+    }
+    
+    /**
+     * Shows the parse tree in a GUI window
+     * @param parser The parser that generated the tree
+     * @param tree The parse tree to display
+     * @param title The title for the window
+     */
+    private static void showParseTreeFrame(Parser parser, ParseTree tree, String title) {
+        JFrame frame = new JFrame(title);
+        JPanel panel = new JPanel();
+        
+        // Create the visualization and add it to the panel
+        Trees.inspect(tree, parser);
+        
+        frame.add(panel);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(800, 600);
+        frame.setVisible(true);
     }
 }
