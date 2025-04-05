@@ -2,14 +2,14 @@ grammar MiniSoft;
 
 // Parser Rules
 program
-    : 'MainPrgm' ID ';'
-      'Var'
+    : MAIN_PRGM ID SEMI
+      VAR
       declarations
-      'BeginPg'
-      '{'
+      BEGIN_PG
+      LBRACE
       instructions
-      '}'
-      'EndPg' ';'
+      RBRACE
+      END_PG SEMI
     ;
 
 declarations
@@ -17,33 +17,81 @@ declarations
     ;
 
 variableDeclaration
-    : 'let' idList ':' type ';'
-    | 'let' idList ':' '[' type ';' INT ']' ';'
+    // Adjusted array declaration based on example.ms: let A,B:[Int;10];
+    : LET idList COLON type SEMI
+    | LET idList COLON LBRACK type SEMI INT RBRACK SEMI
     ;
 
 constantDeclaration
-    : '@define' 'Const' ID ':' type '=' constValue ';'
+    : DEFINE CONST ID COLON type ASSIGN constValue SEMI
     ;
 
 idList
-    : ID (',' ID)*
+    : ID (COMMA ID)*
     ;
 
 type
-    : 'Int'
-    | 'Float'
+    : INT_TYPE
+    | FLOAT_TYPE
     ;
 
 constValue
     : INT
     | FLOAT
-    | '(' sign INT ')'
-    | '(' sign FLOAT ')'
+    | LPAREN sign INT RPAREN
+    | LPAREN sign FLOAT RPAREN
     ;
 
 sign
-    : '+'
-    | '-'
+    : PLUS
+    | MINUS
+    ;
+
+expression
+    : logicalOrExpression
+    ;
+
+logicalOrExpression
+    : logicalAndExpression (OR logicalAndExpression)*
+    ;
+
+logicalAndExpression
+    : negationExpression (AND negationExpression)*
+    ;
+
+negationExpression
+    : NOT negationExpression
+    | comparisonExpression
+    ;
+
+comparisonExpression
+    : additiveExpression comparisonOperator additiveExpression
+    | LPAREN logicalOrExpression RPAREN // Use logicalOrExpression for parenthesized expressions
+    | additiveExpression // Allow single additive expression
+    ;
+
+
+additiveExpression
+    : multiplicativeExpression ( ( PLUS | MINUS ) multiplicativeExpression )*
+    ;
+
+multiplicativeExpression
+    : primaryExpression ( ( MUL | DIV ) primaryExpression )*
+    ;
+
+primaryExpression
+    : constValue
+    | ID
+    | ID LBRACK expression RBRACK // Array access
+    | LPAREN expression RPAREN    // Parentheses for grouping
+     ;
+
+comparisonOperator
+    : GT | LT | GE | LE | EQ | NE
+    ;
+
+condition
+    : logicalOrExpression
     ;
 
 instructions
@@ -60,46 +108,37 @@ instruction
     ;
 
 assignment
-    : ID ':=' expression ';'
-    | ID '[' expression ']' ':=' expression ';'
+    : ID VAR_ASSIGN expression SEMI
+    | ID LBRACK expression RBRACK VAR_ASSIGN expression SEMI
     ;
 
 ifStatement
-    : 'if' '(' condition ')' 'then'
-      '{'
-      instructions
-      '}' 
-      ('else' 
-      '{'
-      instructions
-      '}')?
+    : IF LPAREN condition RPAREN THEN
+      LBRACE instructions RBRACE
+      (ELSE LBRACE instructions RBRACE)?
     ;
 
 doWhileLoop
-    : 'do' 
-      '{'
-      instructions
-      '}' 
-      'while' '(' condition ')' ';'
+    : DO
+      LBRACE instructions RBRACE
+      WHILE LPAREN condition RPAREN SEMI
     ;
 
 forLoop
-    : 'for' ID 'from' expression 'to' expression 'step' expression 
-      '{'
-      instructions
-      '}'
+    : FOR ID FROM expression TO expression STEP expression
+      LBRACE instructions RBRACE
     ;
 
 inputStatement
-    : 'input' '(' ID ')' ';'
+    : INPUT LPAREN ID RPAREN SEMI
     ;
 
 outputStatement
-    : 'output' '(' outputArgList ')' ';'
+    : OUTPUT LPAREN outputArgList RPAREN SEMI
     ;
 
 outputArgList
-    : outputArg (',' outputArg)*
+    : outputArg (COMMA outputArg)*
     ;
 
 outputArg
@@ -107,91 +146,65 @@ outputArg
     | expression
     ;
 
-// Fix the left-recursive expressions by using ANTLR's preferred structure
-expression
-    : additiveExpression
-    ;
+// Lexer Rules (Order: Comments, Keywords, Operators, Literals, WS)
 
-additiveExpression
-    : multiplicativeExpression (additiveOp multiplicativeExpression)*
-    ;
+// Comments - Place these FIRST - Adjusted SINGLE_LINE_COMMENT for spaces
+SINGLE_LINE_COMMENT : '<!' ' ' '-' .*? '-' ' ' '!' '>' -> skip ; // Match <! space - ... - space !>
+MULTI_LINE_COMMENT  : '{--' .*? '--}' -> skip ;                // Match {-- ... --}
 
-additiveOp
-    : '+'
-    | '-'
-    ;
+// Keywords
+MAIN_PRGM : 'MainPrgm';
+VAR : 'Var';
+BEGIN_PG : 'BeginPg';
+END_PG : 'EndPg';
+LET : 'let';
+DEFINE : '@define';
+CONST : 'Const';
+INT_TYPE : 'Int';
+FLOAT_TYPE : 'Float';
+IF : 'if';
+THEN : 'then';
+ELSE : 'else';
+DO : 'do';
+WHILE : 'while';
+FOR : 'for';
+FROM : 'from';
+TO : 'to';
+STEP : 'step';
+INPUT : 'input';
+OUTPUT : 'output';
+OR : 'OR';
+AND : 'AND';
 
-multiplicativeExpression
-    : primaryExpression (multiplicativeOp primaryExpression)*
-    ;
+// Punctuation and Operators (Define AFTER comments and keywords)
+SEMI : ';';
+COLON : ':';
+LBRACK : '[';
+RBRACK : ']';
+ASSIGN : '='; // For constant declaration
+COMMA : ',';
+LPAREN : '(';
+RPAREN : ')';
+PLUS : '+';
+MINUS : '-'; // Also in comments, but comment rule is first
+NOT : '!';   // Also in comments
+MUL : '*';
+DIV : '/';
+GT : '>';   // Also in comments
+LT : '<';   // Defined AFTER SINGLE_LINE_COMMENT
+GE : '>=';
+LE : '<=';
+EQ : '==';
+NE : '!=';
+VAR_ASSIGN : ':=';
+LBRACE : '{'; // Defined AFTER MULTI_LINE_COMMENT
+RBRACE : '}'; // Defined AFTER MULTI_LINE_COMMENT
 
-multiplicativeOp
-    : '*'
-    | '/'
-    ;
-
-primaryExpression
-    : ID
-    | ID '[' expression ']'
-    | constValue
-    | '(' expression ')'
-    ;
-
-condition
-    : logicalOrExpression
-    ;
-
-logicalOrExpression
-    : logicalAndExpression ('OR' logicalAndExpression)*
-    ;
-
-logicalAndExpression
-    : negationExpression ('AND' negationExpression)*
-    ;
-
-negationExpression
-    : '!' negationExpression
-    | comparisonExpression
-    ;
-
-comparisonExpression
-    : additiveExpression comparisonOperator additiveExpression
-    | '(' logicalOrExpression ')'
-    | additiveExpression
-    ;
-
-comparisonOperator
-    : '>'
-    | '<'
-    | '>='
-    | '<='
-    | '=='
-    | '!='
-    ;
-
-// Lexer Rules
-ID : [a-z][a-zA-Z0-9_]* {
-        // Check for invalid patterns: more than 14 chars, ending with _, or consecutive _
-        String text = getText();
-        if (text.length() > 14) {
-            // Handle the error - in a real compiler you might want to throw an exception or log this
-            System.err.println("Error: Identifier '" + text + "' exceeds maximum length of 14 characters");
-        }
-        if (text.endsWith("_")) {
-            System.err.println("Error: Identifier '" + text + "' cannot end with an underscore");
-        }
-        if (text.contains("__")) {
-            System.err.println("Error: Identifier '" + text + "' cannot contain consecutive underscores");
-        }
-    };
-
+// General Identifiers and Literals (Define last)
+ID : [a-zA-Z][a-zA-Z0-9_]* ;
 INT : [0-9]+ ;
 FLOAT : [0-9]+ '.' [0-9]+ ;
 STRING : '"' (~["\r\n] | '\\"')* '"' ;
 
-// Comments
-SINGLE_LINE_COMMENT : '<' '!' '-' .*? '-' '!' '>' -> skip ;
-MULTI_LINE_COMMENT : '{' '-' '-' .*? '-' '-' '}' -> skip ;
-
-// Whitespace
+// Whitespace (Skipped)
 WS : [ \t\r\n]+ -> skip ;
