@@ -67,12 +67,23 @@ public class Main {
             
             SymbolTable symbolTable = symbolTableBuilder.getSymbolTable();
             
+            if (symbolTableBuilder.hasErrors()) {
+                System.err.println("Compilation failed with semantic errors in symbol table building phase.");
+                symbolTable.displaySymbolTable();
+                System.exit(1);
+            }
+            
+            // Perform semantic analysis
+            SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer(symbolTable);
+            walker.walk(semanticAnalyzer, tree);
+            
             // Show compilation results
-            if (!symbolTableBuilder.hasErrors()) {
+            if (!semanticAnalyzer.hasErrors()) {
                 System.out.println("Compilation successful!");
+                System.out.println("Semantic analysis completed with no errors.");
                 symbolTable.displaySymbolTable();
             } else {
-                System.err.println("Compilation failed with semantic errors.");
+                System.err.println("Compilation failed with semantic errors during type checking.");
                 symbolTable.displaySymbolTable();
                 System.exit(1);
             }
