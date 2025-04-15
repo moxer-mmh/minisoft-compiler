@@ -4,9 +4,16 @@ import com.minisoft.symbol.SymbolEntity;
 import com.minisoft.symbol.SymbolTable;
 import org.antlr.v4.runtime.Token;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 public class SymbolTableBuilder extends MiniSoftBaseListener {
     private SymbolTable symbolTable;
     private boolean hasErrors;
+    // Add a map to track variables with zero values
+    private Map<String, Boolean> zeroValuedVariables = new HashMap<>();
 
     public SymbolTableBuilder() {
         this.symbolTable = new SymbolTable();
@@ -119,6 +126,17 @@ public class SymbolTableBuilder extends MiniSoftBaseListener {
         String identifier = ctx.ID().getText();
         SymbolEntity entity = symbolTable.lookupSymbol(identifier);
         
+        // Track zero assignments for division by zero detection
+        MiniSoftParser.ExpressionContext rightExpr = ctx.expression(0);
+        if (rightExpr != null && rightExpr.getChildCount() == 1) {
+            // Check for direct assignment of zero
+            if (rightExpr.getText().equals("0")) {
+                zeroValuedVariables.put(identifier, true);
+            } else {
+                zeroValuedVariables.put(identifier, false);
+            }
+        }
+        
         // Check for undeclared identifier
         if (entity == null) {
             reportSemanticError(ctx.start, "Undeclared identifier: Variable '" + identifier + "' is not declared");
@@ -146,8 +164,8 @@ public class SymbolTableBuilder extends MiniSoftBaseListener {
         }
         
         // Check right side expression
-        MiniSoftParser.ExpressionContext rightExpr = isArrayAccess ? ctx.expression(1) : ctx.expression(0);
-        checkExpression(rightExpr, entity.getDataType(), ctx.start);
+        MiniSoftParser.ExpressionContext rightExprFinal = isArrayAccess ? ctx.expression(1) : ctx.expression(0);
+        checkExpression(rightExprFinal, entity.getDataType(), ctx.start);
     }
     
     @Override
@@ -190,8 +208,10 @@ public class SymbolTableBuilder extends MiniSoftBaseListener {
         if (ctx.DIV() != null) {
             for (int i = 1; i < ctx.primaryExpression().size(); i++) {
                 MiniSoftParser.PrimaryExpressionContext divisor = ctx.primaryExpression(i);
+                
+                // Check for constant zero values
                 if (divisor.constValue() != null) {
-                    // Check for direct zero constant
+                    // Existing constant checks
                     if (divisor.constValue().INT() != null && divisor.constValue().INT().getText().equals("0")) {
                         reportSemanticError(ctx.start, "Division by zero detected");
                     }
@@ -204,6 +224,13 @@ public class SymbolTableBuilder extends MiniSoftBaseListener {
                                 reportSemanticError(ctx.start, "Division by zero detected");
                             }
                         }
+                    }
+                } 
+                // Add check for variable divisors with known zero value
+                else if (divisor.ID() != null) {
+                    String varName = divisor.ID().getText();
+                    if (zeroValuedVariables.containsKey(varName) && zeroValuedVariables.get(varName)) {
+                        reportSemanticError(ctx.start, "Potential division by zero: Variable '" + varName + "' has value 0");
                     }
                 }
             }
