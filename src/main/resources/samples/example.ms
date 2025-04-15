@@ -8,7 +8,7 @@ BeginPg
 {
     {--Ceci est un commentaire sur
     Plusieurs lignes --}
-    x := 5;
+    x := 0;
     y := (x + 3) * 2;
     A[9] := 15;
 

@@ -5,30 +5,45 @@ import com.minisoft.symbol.SymbolTable;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTreeProperty;
 
+/**
+ * Semantic Analyzer for the MiniSoft compiler.
+ * Performs type checking and validation on expressions and statements.
+ * Tracks types of expressions throughout the AST and verifies type correctness.
+ */
 public class SemanticAnalyzer extends MiniSoftBaseListener {
     private SymbolTable symbolTable;
     private boolean hasErrors;
     private ParseTreeProperty<String> expressionTypes; // To track types of expressions
 
+    /**
+     * Creates a semantic analyzer with the provided symbol table
+     */
     public SemanticAnalyzer(SymbolTable symbolTable) {
         this.symbolTable = symbolTable;
         this.hasErrors = false;
         this.expressionTypes = new ParseTreeProperty<>();
     }
 
+    /**
+     * Returns whether any semantic errors were detected
+     */
     public boolean hasErrors() {
         return hasErrors;
     }
 
+    /**
+     * Initialize condition type as Int (boolean equivalent)
+     */
     @Override
     public void enterCondition(MiniSoftParser.ConditionContext ctx) {
-        // Initialize condition type as Int (boolean equivalent)
         expressionTypes.put(ctx, "Int");
     }
 
+    /**
+     * Determines and stores types of primary expressions
+     */
     @Override
     public void exitPrimaryExpression(MiniSoftParser.PrimaryExpressionContext ctx) {
-        // Determine and store type of primary expression
         if (ctx.ID() != null) {
             String identifier = ctx.ID().getText();
             SymbolEntity entity = symbolTable.lookupSymbol(identifier);
@@ -54,9 +69,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Checks and propagates types for multiplicative expressions
+     */
     @Override
     public void exitMultiplicativeExpression(MiniSoftParser.MultiplicativeExpressionContext ctx) {
-        // Determine result type of multiplicative expression
         if (ctx.primaryExpression().size() == 1) {
             // Simple expression, propagate type
             String primType = expressionTypes.get(ctx.primaryExpression(0));
@@ -77,9 +94,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Checks and propagates types for additive expressions
+     */
     @Override
     public void exitAdditiveExpression(MiniSoftParser.AdditiveExpressionContext ctx) {
-        // Similar to multiplicative expression
         if (ctx.multiplicativeExpression().size() == 1) {
             String multType = expressionTypes.get(ctx.multiplicativeExpression(0));
             expressionTypes.put(ctx, multType != null ? multType : "unknown");
@@ -98,9 +117,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates comparison expressions and sets their types
+     */
     @Override
     public void exitComparisonExpression(MiniSoftParser.ComparisonExpressionContext ctx) {
-        // Comparison expressions always evaluate to a boolean (represented as Int)
         if (ctx.additiveExpression().size() == 2) {
             // This is an actual comparison
             expressionTypes.put(ctx, "Int"); // Boolean result (0 or 1)
@@ -126,6 +147,9 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates logical negation (NOT) expressions
+     */
     @Override
     public void exitNegationExpression(MiniSoftParser.NegationExpressionContext ctx) {
         if (ctx.NOT() != null) {
@@ -144,9 +168,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates logical AND expressions
+     */
     @Override
     public void exitLogicalAndExpression(MiniSoftParser.LogicalAndExpressionContext ctx) {
-        // Logical AND always results in a boolean (Int)
         if (ctx.AND().size() > 0) {
             expressionTypes.put(ctx, "Int");
             
@@ -164,9 +190,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates logical OR expressions
+     */
     @Override
     public void exitLogicalOrExpression(MiniSoftParser.LogicalOrExpressionContext ctx) {
-        // Logical OR always results in a boolean (Int)
         if (ctx.OR().size() > 0) {
             expressionTypes.put(ctx, "Int");
             
@@ -184,13 +212,18 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Propagates type information from logical expressions to general expressions
+     */
     @Override
     public void exitExpression(MiniSoftParser.ExpressionContext ctx) {
-        // Propagate type from logical expression
         String logicalType = expressionTypes.get(ctx.logicalOrExpression());
         expressionTypes.put(ctx, logicalType != null ? logicalType : "Int");
     }
 
+    /**
+     * Validates assignment statements for type compatibility
+     */
     @Override
     public void exitAssignment(MiniSoftParser.AssignmentContext ctx) {
         String identifier = ctx.ID().getText();
@@ -212,6 +245,9 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates condition expressions are boolean compatible
+     */
     @Override
     public void exitCondition(MiniSoftParser.ConditionContext ctx) {
         String condType = expressionTypes.get(ctx.logicalOrExpression());
@@ -222,9 +258,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates if statement conditions are boolean compatible
+     */
     @Override
     public void exitIfStatement(MiniSoftParser.IfStatementContext ctx) {
-        // Check condition type
         String condType = expressionTypes.get(ctx.condition());
         
         // Set default boolean type if we have no type info
@@ -238,9 +276,11 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Validates do-while loop conditions are boolean compatible
+     */
     @Override
     public void exitDoWhileLoop(MiniSoftParser.DoWhileLoopContext ctx) {
-        // Check condition type
         String condType = expressionTypes.get(ctx.condition());
         
         // Set default boolean type if we have no type info
@@ -254,6 +294,9 @@ public class SemanticAnalyzer extends MiniSoftBaseListener {
         }
     }
 
+    /**
+     * Reports a semantic error with location information
+     */
     private void reportSemanticError(Token token, String message) {
         System.err.println("[Semantic Error] Line " + token.getLine() + ":" + token.getCharPositionInLine() +
                         " - " + message);

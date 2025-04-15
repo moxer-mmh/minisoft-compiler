@@ -4,7 +4,7 @@ import com.minisoft.symbol.SymbolTable;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import org.antlr.v4.gui.Trees; // Add this import for GUI visualization
+import org.antlr.v4.gui.Trees;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
@@ -12,6 +12,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
+/**
+ * Main compiler class for MiniSoft language.
+ * Orchestrates the compilation process including lexical, syntax, and semantic analysis.
+ */
 public class Main {
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -24,7 +28,7 @@ public class Main {
         try {
             String sourceCode = new String(Files.readAllBytes(Paths.get(sourceFilePath)));
             
-            // Lexical analysis
+            // Lexical analysis phase
             MiniSoftLexer lexer = new MiniSoftLexer(CharStreams.fromString(sourceCode));
             lexer.removeErrorListeners();
             lexer.addErrorListener(new BaseErrorListener() {
@@ -37,7 +41,7 @@ public class Main {
             
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             
-            // Syntax analysis
+            // Syntax analysis phase
             MiniSoftParser parser = new MiniSoftParser(tokens);
             parser.removeErrorListeners();
             parser.addErrorListener(new BaseErrorListener() {
@@ -49,7 +53,7 @@ public class Main {
                 }
             });
             
-            // Parse the input
+            // Parse the input and generate the parse tree
             ParseTree tree = parser.program();
             
             // Display the parse tree in a GUI window
@@ -60,7 +64,7 @@ public class Main {
                 System.exit(1);
             }
             
-            // Build symbol table
+            // Symbol table building phase - first pass of semantic analysis
             SymbolTableBuilder symbolTableBuilder = new SymbolTableBuilder();
             ParseTreeWalker walker = new ParseTreeWalker();
             walker.walk(symbolTableBuilder, tree);
@@ -73,7 +77,7 @@ public class Main {
                 System.exit(1);
             }
             
-            // Perform semantic analysis
+            // Semantic analysis phase - type checking and validation
             SemanticAnalyzer semanticAnalyzer = new SemanticAnalyzer(symbolTable);
             walker.walk(semanticAnalyzer, tree);
             
@@ -95,7 +99,8 @@ public class Main {
     }
     
     /**
-     * Shows the parse tree in a GUI window
+     * Displays the parse tree in a GUI window for visualization
+     * 
      * @param parser The parser that generated the tree
      * @param tree The parse tree to display
      * @param title The title for the window
